@@ -454,6 +454,16 @@ let ``async exec reader`` () =
     } |> Async.RunSynchronously
 
 [<Test>]
+let ``async exec readerWith`` () = 
+    let cmgr = withNewDbFile()
+    insertUsers cmgr
+    async {
+        let! rows = Sql.asyncExecReaderWith cmgr "select * from person where id < @id" [P("@id", 1)] (fun r -> r.GetValue 0)
+        let r = rows |> List.ofSeq
+        Assert.AreEqual(0, r.Length)
+    } |> Async.RunSynchronously
+
+[<Test>]
 let ``duplicate field names are NOT supported``() =
     let c = withNewDbFile()
     Sql.execNonQueryF c "insert into person (id, name) values (%d, %s)" 5 "John" |> ignore

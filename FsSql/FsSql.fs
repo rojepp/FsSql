@@ -199,6 +199,17 @@ let internal execReaderAsyncWrap (cmd: #IDbCommand) dispose =
         return new DataReaderWrapper(r, dispose) :> IDataReader
     }
 
+let internal execReaderAsyncWrapWith (cmd: #IDbCommand) dispose f = 
+    let ops = getAsyncOpsForCommand cmd
+    async {
+        use! r = ops.execReader cmd
+        return 
+           seq {
+              while r.Read() do
+                 yield f (r:>IDataRecord)
+           }
+    }
+
 /// Executes a query and returns a data reader
 let execReader connMgr = execReaderInternal execReaderWrap CommandType.Text connMgr
 
@@ -207,6 +218,9 @@ let execSPReader connMgr = execReaderInternal execReaderWrap CommandType.StoredP
 
 /// Executes a query asynchronously and returns a data reader
 let asyncExecReader connMgr = execReaderInternal execReaderAsyncWrap CommandType.Text connMgr
+
+/// Executes a query asynchronously and returns the result of applying the given function for each row in the result set.
+let asyncExecReaderWith connMgr f = execReaderInternal execReaderAsyncWrapWith CommandType.Text connMgr f
 
 /// Executes a stored procedure asynchronously and returns a data reader
 let asyncExecSPReader connMgr = execReaderInternal execReaderAsyncWrap CommandType.StoredProcedure connMgr

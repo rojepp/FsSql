@@ -16,6 +16,7 @@ type SqlWrapper(cmgr: Sql.ConnectionManager) =
     member x.ExecSPScalar sql parameters = Sql.execSPScalar cmgr sql parameters
 
     member x.AsyncExecReader sql parameters = Sql.asyncExecReader cmgr sql parameters
+    member x.AsyncExecReaderWith sql parameters f = Sql.asyncExecReaderWith cmgr sql parameters f
     member x.AsyncExecNonQuery sql parameters = Sql.asyncExecNonQuery cmgr sql parameters
     member x.AsyncExecScalar sql parameters = Sql.asyncExecScalar cmgr sql parameters
 
