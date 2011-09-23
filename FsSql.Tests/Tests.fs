@@ -679,12 +679,12 @@ let tx = Tx.TransactionBuilder()
 let ``tx monad error`` () = 
     let c = withMemDb()
     let v = ref false
-    let tran() = tx {
+    let tran = tx {
         let! x = Tx.execNonQuery "select" []
         v := true
         return 3
     }
-    let result = tran() c // execute transaction
+    let result = tran c // execute transaction
     match result with
     | Tx.Failed e -> 
         Assert.AreEqual(false, !v)
@@ -697,12 +697,12 @@ let txInsert id =
 [<Test;Parallelizable>]
 let ``tx monad error rollback`` () = 
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         let! x = Tx.execNonQuery "insert into person (id,name) values (@id, @name)" [P("@id",3);P("@name", "juan")]
         let! x = Tx.execNonQuery "select" []
         return ()
     }
-    let result = tran() c // execute transaction
+    let result = tran c // execute transaction
     match result with
     | Tx.Failed e -> 
         printfn "Error: %A" e
@@ -712,12 +712,12 @@ let ``tx monad error rollback`` () =
 [<Test;Parallelizable>]
 let ``tx monad ok`` () = 
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         do! txInsert 3 
         do! txInsert 4
         return 8
     }
-    let result = tran() c // execute transaction
+    let result = tran c // execute transaction
     match result with
     | Tx.Commit a -> Assert.AreEqual(8, a)
     | Tx.Failed e -> failwithe e "Transaction should not have failed"
@@ -727,7 +727,7 @@ let ``tx monad ok`` () =
 [<Test;Parallelizable>]
 let ``tx monad using`` () = 
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         do! txInsert 3
         use! reader = Tx.execReader "select * from person" []
         let id = 
@@ -737,7 +737,7 @@ let ``tx monad using`` () =
             |> Enumerable.First
         return id
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Commit a -> Assert.AreEqual(3, a)
     | Tx.Rollback a -> failwith "Transaction should not have failed"
@@ -746,13 +746,13 @@ let ``tx monad using`` () =
 [<Test;Parallelizable>]
 let ``tx monad rollback and zero`` () = 
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         do! txInsert 3
         if 1 = 1
             then do! Tx.rollback 4
         return 0
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Rollback a -> 
         Assert.AreEqual(4, a)
@@ -763,14 +763,14 @@ let ``tx monad rollback and zero`` () =
 let ``tx monad tryfinally`` () = 
     let c = withMemDb()
     let finallyRun = ref false
-    let tran() = tx {
+    let tran = tx {
         try
             do! txInsert 3
             failwith "Error!"
         finally
             finallyRun := true
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Failed e ->
         Assert.AreEqual("Error!", e.Message)
@@ -780,14 +780,14 @@ let ``tx monad tryfinally`` () =
 [<Test;Parallelizable>]
 let ``tx monad composable`` () =
     let c = withMemDb()
-    let tran1() = tx {
+    let tran1 = tx {
         do! txInsert 3
     }
-    let tran() = tx {
-        do! tran1()
+    let tran = tx {
+        do! tran1
         do! txInsert 4
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Commit a -> Assert.AreEqual(2L, countUsers c)
     | Tx.Rollback a -> failwith "Transaction should not have failed"
@@ -796,11 +796,11 @@ let ``tx monad composable`` () =
 [<Test;Parallelizable>]
 let ``tx monad for`` () = 
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         for i in 1..50 do
             do! txInsert i
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Commit a -> Assert.AreEqual(50L, countUsers c)
     | Tx.Rollback a -> failwith "Transaction should not have failed"
@@ -809,11 +809,11 @@ let ``tx monad for`` () =
 [<Test;Parallelizable>]
 let ``tx monad for with error`` () =
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         for i in 1..50 do
             do! txInsert 1
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Failed e -> Assert.AreEqual(0L, countUsers c)
     | _ -> failwith "Transaction should have failed"
@@ -840,7 +840,7 @@ let ``tx monad while`` () =
 [<Test;Parallelizable>]
 let ``tx monad trywith``() =
     let c = withMemDb()
-    let tran() = tx {
+    let tran = tx {
         try
             do! txInsert 1
             failwith "bye"
@@ -848,9 +848,8 @@ let ``tx monad trywith``() =
         with e ->
             do! txInsert 3
     }
-    let result = tran() c
+    let result = tran c
     match result with
     | Tx.Commit a -> Assert.AreEqual(2L, countUsers c)
     | Tx.Rollback a -> failwith "Transaction should not have failed"
     | Tx.Failed e -> failwithe e "Transaction should not have failed"
-    
